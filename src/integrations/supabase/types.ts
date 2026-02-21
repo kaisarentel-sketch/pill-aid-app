@@ -21,6 +21,7 @@ export type Database = {
           expiration_date: string
           id: string
           name: string
+          quantity: string
         }
         Insert: {
           active_ingredient: string
@@ -28,6 +29,7 @@ export type Database = {
           expiration_date: string
           id?: string
           name: string
+          quantity?: string
         }
         Update: {
           active_ingredient?: string
@@ -35,6 +37,7 @@ export type Database = {
           expiration_date?: string
           id?: string
           name?: string
+          quantity?: string
         }
         Relationships: []
       }

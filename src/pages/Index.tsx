@@ -27,19 +27,21 @@ interface Medication {
   name: string;
   active_ingredient: string;
   expiration_date: string;
+  quantity: string;
 }
 
 interface MedFormData {
   name: string;
   active_ingredient: string;
   expiration_date: string;
+  quantity: string;
 }
 
 const Index = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [editingMed, setEditingMed] = useState<Medication | null>(null);
   const [pendingMed, setPendingMed] = useState<MedFormData | null>(null);
-  const [formData, setFormData] = useState<MedFormData>({ name: "", active_ingredient: "", expiration_date: "" });
+  const [formData, setFormData] = useState<MedFormData>({ name: "", active_ingredient: "", expiration_date: "", quantity: "" });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -114,6 +116,7 @@ const Index = () => {
         name: data.name,
         active_ingredient: data.active_ingredient,
         expiration_date: data.expiration_date,
+        quantity: "",
       };
       setFormData(detected);
       setPendingMed(detected);
@@ -127,7 +130,7 @@ const Index = () => {
 
   const openEditDialog = (med: Medication) => {
     setEditingMed(med);
-    setFormData({ name: med.name, active_ingredient: med.active_ingredient, expiration_date: med.expiration_date });
+    setFormData({ name: med.name, active_ingredient: med.active_ingredient, expiration_date: med.expiration_date, quantity: med.quantity });
   };
 
   const handleDialogSave = () => {
@@ -217,6 +220,7 @@ const Index = () => {
               <TableRow className="bg-accent/50 hover:bg-accent/50">
                 <TableHead className="text-accent-foreground font-semibold text-xs uppercase tracking-wider">Ravimi nimi</TableHead>
                 <TableHead className="text-accent-foreground font-semibold text-xs uppercase tracking-wider">Toimeaine</TableHead>
+                <TableHead className="text-accent-foreground font-semibold text-xs uppercase tracking-wider text-center">Kogus</TableHead>
                 <TableHead className="text-accent-foreground font-semibold text-xs uppercase tracking-wider text-right">Säilib kuni</TableHead>
                 <TableHead className="w-20" />
               </TableRow>
@@ -224,14 +228,14 @@ const Index = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
                     <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
                     Laadin...
                   </TableCell>
                 </TableRow>
               ) : medications.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
                     Ravimeid pole veel lisatud
                   </TableCell>
                 </TableRow>
@@ -243,6 +247,7 @@ const Index = () => {
                     <TableRow key={med.id} className="group">
                       <TableCell className="font-medium text-foreground">{med.name}</TableCell>
                       <TableCell className="text-muted-foreground text-sm italic">{med.active_ingredient}</TableCell>
+                      <TableCell className="text-center text-sm text-muted-foreground">{med.quantity || "–"}</TableCell>
                       <TableCell className={`text-right font-mono text-sm ${isExpired ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
                         {med.expiration_date}
                       </TableCell>
@@ -304,6 +309,15 @@ const Index = () => {
                 value={formData.expiration_date}
                 onChange={(e) => setFormData((f) => ({ ...f, expiration_date: e.target.value }))}
                 placeholder="nt 12/2026"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="med-quantity">Kogus (nt 30 tk, 100 ml)</Label>
+              <Input
+                id="med-quantity"
+                value={formData.quantity}
+                onChange={(e) => setFormData((f) => ({ ...f, quantity: e.target.value }))}
+                placeholder="nt 30 tk"
               />
             </div>
           </div>
