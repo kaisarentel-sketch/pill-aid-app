@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Camera, Loader2, Pill, Trash2, Pencil } from "lucide-react";
+import { Camera, Loader2, Pill, Trash2, Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -160,13 +160,18 @@ const Index = () => {
     }
   };
 
+  const handleManualAdd = () => {
+    setFormData({ name: "", active_ingredient: "", expiration_date: "", quantity: "" });
+    setPendingMed({ name: "", active_ingredient: "", expiration_date: "", quantity: "" });
+  };
+
   const handleDialogClose = () => {
     setEditingMed(null);
     setPendingMed(null);
   };
 
   const isDialogOpen = !!editingMed || !!pendingMed;
-  const dialogTitle = editingMed ? "Muuda ravimit" : "Kinnita tuvastatud ravim";
+  const dialogTitle = editingMed ? "Muuda ravimit" : (pendingMed?.name ? "Kinnita tuvastatud ravim" : "Lisa ravim käsitsi");
 
   return (
     <div className="min-h-screen bg-background">
@@ -183,24 +188,34 @@ const Index = () => {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-5">
-        <Button
-          onClick={handleCapture}
-          disabled={isAnalyzing}
-          className="w-full h-14 text-base font-semibold gap-3 rounded-2xl shadow-md"
-          size="lg"
-        >
-          {isAnalyzing ? (
-            <>
-              <Loader2 className="h-5 w-5 animate-spin" />
-              AI analüüsib...
-            </>
-          ) : (
-            <>
-              <Camera className="h-5 w-5" />
-              Pildista ravimit
-            </>
-          )}
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            onClick={handleCapture}
+            disabled={isAnalyzing}
+            className="flex-1 h-14 text-base font-semibold gap-3 rounded-2xl shadow-md"
+            size="lg"
+          >
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                AI analüüsib...
+              </>
+            ) : (
+              <>
+                <Camera className="h-5 w-5" />
+                Pildista ravimit
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={handleManualAdd}
+            variant="outline"
+            className="h-14 px-5 rounded-2xl shadow-sm"
+            size="lg"
+          >
+            <Plus className="h-5 w-5" />
+          </Button>
+        </div>
 
         <input
           ref={fileInputRef}
