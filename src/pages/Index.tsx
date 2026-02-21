@@ -1,7 +1,16 @@
 import { useState, useRef } from "react";
-import { Camera, Loader2, Pill, Trash2 } from "lucide-react";
+import { Camera, Loader2, Pill, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -20,9 +29,17 @@ interface Medication {
   expiration_date: string;
 }
 
+interface MedFormData {
+  name: string;
+  active_ingredient: string;
+  expiration_date: string;
+}
 
 const Index = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [editingMed, setEditingMed] = useState<Medication | null>(null);
+  const [pendingMed, setPendingMed] = useState<MedFormData | null>(null);
+  const [formData, setFormData] = useState<MedFormData>({ name: "", active_ingredient: "", expiration_date: "" });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -39,11 +56,25 @@ const Index = () => {
   });
 
   const addMutation = useMutation({
-    mutationFn: async (med: Omit<Medication, "id">) => {
+    mutationFn: async (med: MedFormData) => {
       const { error } = await supabase.from("medications").insert(med);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["medications"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["medications"] });
+      toast.success(`${formData.name} lisatud!`);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, ...med }: { id: string } & MedFormData) => {
+      const { error } = await supabase.from("medications").update(med).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["medications"] });
+      toast.success("Ravim uuendatud!");
+    },
   });
 
   const deleteMutation = useMutation({
@@ -79,12 +110,13 @@ const Index = () => {
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      addMutation.mutate({
+      const detected: MedFormData = {
         name: data.name,
         active_ingredient: data.active_ingredient,
         expiration_date: data.expiration_date,
-      });
-      toast.success(`${data.name} lisatud!`);
+      };
+      setFormData(detected);
+      setPendingMed(detected);
     } catch (err: any) {
       console.error("Analysis error:", err);
       toast.error("Ravimi tuvastamine ebaõnnestus. Proovi uuesti.");
@@ -92,6 +124,33 @@ const Index = () => {
       setIsAnalyzing(false);
     }
   };
+
+  const openEditDialog = (med: Medication) => {
+    setEditingMed(med);
+    setFormData({ name: med.name, active_ingredient: med.active_ingredient, expiration_date: med.expiration_date });
+  };
+
+  const handleDialogSave = () => {
+    if (!formData.name.trim() || !formData.active_ingredient.trim() || !formData.expiration_date.trim()) {
+      toast.error("Kõik väljad peavad olema täidetud");
+      return;
+    }
+    if (editingMed) {
+      updateMutation.mutate({ id: editingMed.id, ...formData });
+      setEditingMed(null);
+    } else if (pendingMed) {
+      addMutation.mutate(formData);
+      setPendingMed(null);
+    }
+  };
+
+  const handleDialogClose = () => {
+    setEditingMed(null);
+    setPendingMed(null);
+  };
+
+  const isDialogOpen = !!editingMed || !!pendingMed;
+  const dialogTitle = editingMed ? "Muuda ravimit" : "Kinnita tuvastatud ravim";
 
   return (
     <div className="min-h-screen bg-background">
@@ -159,7 +218,7 @@ const Index = () => {
                 <TableHead className="text-accent-foreground font-semibold text-xs uppercase tracking-wider">Ravimi nimi</TableHead>
                 <TableHead className="text-accent-foreground font-semibold text-xs uppercase tracking-wider">Toimeaine</TableHead>
                 <TableHead className="text-accent-foreground font-semibold text-xs uppercase tracking-wider text-right">Säilib kuni</TableHead>
-                <TableHead className="w-12" />
+                <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -187,14 +246,23 @@ const Index = () => {
                       <TableCell className={`text-right font-mono text-sm ${isExpired ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
                         {med.expiration_date}
                       </TableCell>
-                      <TableCell className="w-12 p-1">
-                        <button
-                          onClick={() => deleteMutation.mutate(med.id)}
-                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:opacity-100"
-                          aria-label={`Kustuta ${med.name}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                      <TableCell className="w-20 p-1">
+                        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity active:opacity-100">
+                          <button
+                            onClick={() => openEditDialog(med)}
+                            className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            aria-label={`Muuda ${med.name}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => deleteMutation.mutate(med.id)}
+                            className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            aria-label={`Kustuta ${med.name}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -204,6 +272,50 @@ const Index = () => {
           </Table>
         </div>
       </main>
+
+      <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) handleDialogClose(); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{dialogTitle}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="med-name">Ravimi nimi</Label>
+              <Input
+                id="med-name"
+                value={formData.name}
+                onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))}
+                placeholder="nt Paracetamol"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="med-ingredient">Toimeaine</Label>
+              <Input
+                id="med-ingredient"
+                value={formData.active_ingredient}
+                onChange={(e) => setFormData((f) => ({ ...f, active_ingredient: e.target.value }))}
+                placeholder="nt Paracetamolum"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="med-expiry">Säilib kuni (KK/AAAA)</Label>
+              <Input
+                id="med-expiry"
+                value={formData.expiration_date}
+                onChange={(e) => setFormData((f) => ({ ...f, expiration_date: e.target.value }))}
+                placeholder="nt 12/2026"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleDialogClose}>Tühista</Button>
+            <Button onClick={handleDialogSave} disabled={addMutation.isPending || updateMutation.isPending}>
+              {(addMutation.isPending || updateMutation.isPending) && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {editingMed ? "Salvesta" : "Lisa ravim"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
