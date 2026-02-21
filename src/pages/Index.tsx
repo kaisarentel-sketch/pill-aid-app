@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { Camera, Loader2, Pill, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -19,12 +20,6 @@ interface Medication {
   expiration_date: string;
 }
 
-const NEW_MED_OPTIONS = [
-  { name: "Paracetamol", active_ingredient: "Paracetamolum", expiration_date: "12/2026" },
-  { name: "Metformiin", active_ingredient: "Metforminum", expiration_date: "06/2027" },
-  { name: "Atorvastatiin", active_ingredient: "Atorvastatinum", expiration_date: "01/2028" },
-  { name: "Omeprasool", active_ingredient: "Omeprazolum", expiration_date: "09/2026" },
-];
 
 const Index = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -63,16 +58,39 @@ const Index = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.length) return;
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
     e.target.value = "";
 
     setIsAnalyzing(true);
-    setTimeout(() => {
-      const randomMed = NEW_MED_OPTIONS[Math.floor(Math.random() * NEW_MED_OPTIONS.length)];
-      addMutation.mutate(randomMed);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data, error } = await supabase.functions.invoke("analyze-medication", {
+        body: { imageBase64: base64 },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      addMutation.mutate({
+        name: data.name,
+        active_ingredient: data.active_ingredient,
+        expiration_date: data.expiration_date,
+      });
+      toast.success(`${data.name} lisatud!`);
+    } catch (err: any) {
+      console.error("Analysis error:", err);
+      toast.error("Ravimi tuvastamine ebaõnnestus. Proovi uuesti.");
+    } finally {
       setIsAnalyzing(false);
-    }, 3000);
+    }
   };
 
   return (
