@@ -9,36 +9,55 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Medication {
-  id: number;
+  id: string;
   name: string;
-  activeIngredient: string;
-  expirationDate: string;
+  active_ingredient: string;
+  expiration_date: string;
 }
 
-const DUMMY_MEDS: Medication[] = [
-  { id: 1, name: "Paracetamol", activeIngredient: "Paracetamolum", expirationDate: "12/2026" },
-  { id: 2, name: "Ibuprofeen", activeIngredient: "Ibuprofenum", expirationDate: "03/2027" },
-  { id: 3, name: "Amoksitsilliin", activeIngredient: "Amoxicillinum", expirationDate: "08/2025" },
-];
-
-const NEW_MED_OPTIONS: Omit<Medication, "id">[] = [
-  { name: "Paracetamol", activeIngredient: "Paracetamolum", expirationDate: "12/2026" },
-  { name: "Metformiin", activeIngredient: "Metforminum", expirationDate: "06/2027" },
-  { name: "Atorvastatiin", activeIngredient: "Atorvastatinum", expirationDate: "01/2028" },
-  { name: "Omeprasool", activeIngredient: "Omeprazolum", expirationDate: "09/2026" },
+const NEW_MED_OPTIONS = [
+  { name: "Paracetamol", active_ingredient: "Paracetamolum", expiration_date: "12/2026" },
+  { name: "Metformiin", active_ingredient: "Metforminum", expiration_date: "06/2027" },
+  { name: "Atorvastatiin", active_ingredient: "Atorvastatinum", expiration_date: "01/2028" },
+  { name: "Omeprasool", active_ingredient: "Omeprazolum", expiration_date: "09/2026" },
 ];
 
 const Index = () => {
-  const [medications, setMedications] = useState<Medication[]>(DUMMY_MEDS);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const nextId = useRef(DUMMY_MEDS.length + 1);
+  const queryClient = useQueryClient();
 
-  const handleDelete = (id: number) => {
-    setMedications((prev) => prev.filter((m) => m.id !== id));
-  };
+  const { data: medications = [], isLoading } = useQuery({
+    queryKey: ["medications"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("medications")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Medication[];
+    },
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async (med: Omit<Medication, "id">) => {
+      const { error } = await supabase.from("medications").insert(med);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["medications"] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("medications").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["medications"] }),
+  });
 
   const handleCapture = () => {
     fileInputRef.current?.click();
@@ -51,17 +70,13 @@ const Index = () => {
     setIsAnalyzing(true);
     setTimeout(() => {
       const randomMed = NEW_MED_OPTIONS[Math.floor(Math.random() * NEW_MED_OPTIONS.length)];
-      setMedications((prev) => [
-        { ...randomMed, id: nextId.current++ },
-        ...prev,
-      ]);
+      addMutation.mutate(randomMed);
       setIsAnalyzing(false);
     }, 3000);
   };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="sticky top-0 z-10 bg-card border-b border-border px-4 py-4 shadow-sm">
         <div className="flex items-center gap-3 max-w-2xl mx-auto">
           <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
@@ -75,7 +90,6 @@ const Index = () => {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-5">
-        {/* Capture Button */}
         <Button
           onClick={handleCapture}
           disabled={isAnalyzing}
@@ -104,7 +118,6 @@ const Index = () => {
           onChange={handleFileChange}
         />
 
-        {/* Stats */}
         <div className="flex gap-3">
           <div className="flex-1 rounded-2xl bg-card border border-border p-4 text-center shadow-sm">
             <p className="text-2xl font-bold text-primary">{medications.length}</p>
@@ -113,7 +126,7 @@ const Index = () => {
           <div className="flex-1 rounded-2xl bg-card border border-border p-4 text-center shadow-sm">
             <p className="text-2xl font-bold text-destructive">
               {medications.filter((m) => {
-                const [month, year] = m.expirationDate.split("/").map(Number);
+                const [month, year] = m.expiration_date.split("/").map(Number);
                 return new Date(year, month - 1) < new Date();
               }).length}
             </p>
@@ -121,56 +134,53 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Table */}
         <div className="rounded-2xl bg-card border border-border shadow-sm overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="bg-accent/50 hover:bg-accent/50">
-                <TableHead className="text-accent-foreground font-semibold text-xs uppercase tracking-wider">
-                  Ravimi nimi
-                </TableHead>
-                <TableHead className="text-accent-foreground font-semibold text-xs uppercase tracking-wider">
-                  Toimeaine
-                </TableHead>
-                <TableHead className="text-accent-foreground font-semibold text-xs uppercase tracking-wider text-right">
-                  Säilib kuni
-                </TableHead>
+                <TableHead className="text-accent-foreground font-semibold text-xs uppercase tracking-wider">Ravimi nimi</TableHead>
+                <TableHead className="text-accent-foreground font-semibold text-xs uppercase tracking-wider">Toimeaine</TableHead>
+                <TableHead className="text-accent-foreground font-semibold text-xs uppercase tracking-wider text-right">Säilib kuni</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {medications.map((med) => {
-                const [month, year] = med.expirationDate.split("/").map(Number);
-                const isExpired = new Date(year, month - 1) < new Date();
-                return (
-                  <TableRow key={med.id} className="group">
-                    <TableCell className="font-medium text-foreground">
-                      {med.name}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm italic">
-                      {med.activeIngredient}
-                    </TableCell>
-                    <TableCell className={`text-right font-mono text-sm ${isExpired ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
-                      {med.expirationDate}
-                    </TableCell>
-                    <TableCell className="w-12 p-1">
-                      <button
-                        onClick={() => handleDelete(med.id)}
-                        className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:opacity-100"
-                        aria-label={`Kustuta ${med.name}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              {medications.length === 0 && (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                    Laadin...
+                  </TableCell>
+                </TableRow>
+              ) : medications.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
                     Ravimeid pole veel lisatud
                   </TableCell>
                 </TableRow>
+              ) : (
+                medications.map((med) => {
+                  const [month, year] = med.expiration_date.split("/").map(Number);
+                  const isExpired = new Date(year, month - 1) < new Date();
+                  return (
+                    <TableRow key={med.id} className="group">
+                      <TableCell className="font-medium text-foreground">{med.name}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm italic">{med.active_ingredient}</TableCell>
+                      <TableCell className={`text-right font-mono text-sm ${isExpired ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
+                        {med.expiration_date}
+                      </TableCell>
+                      <TableCell className="w-12 p-1">
+                        <button
+                          onClick={() => deleteMutation.mutate(med.id)}
+                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:opacity-100"
+                          aria-label={`Kustuta ${med.name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
