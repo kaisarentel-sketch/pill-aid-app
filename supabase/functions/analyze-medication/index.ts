@@ -26,6 +26,17 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
+    // Extract mime type and raw base64 from data URL
+    let mimeType = "image/jpeg";
+    let rawBase64 = imageBase64;
+    if (imageBase64.startsWith("data:")) {
+      const match = imageBase64.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+      if (match) {
+        mimeType = match[1];
+        rawBase64 = match[2];
+      }
+    }
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -55,7 +66,7 @@ If you cannot identify the medication clearly, make your best guess based on wha
               {
                 type: "image_url",
                 image_url: {
-                  url: imageBase64.startsWith("data:") ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`,
+                  url: `data:${mimeType};base64,${rawBase64}`,
                 },
               },
             ],
