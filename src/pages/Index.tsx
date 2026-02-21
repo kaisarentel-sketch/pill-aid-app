@@ -128,7 +128,7 @@ const Index = () => {
       const detected: MedFormData = {
         name: data.name,
         active_ingredient: data.active_ingredient,
-        expiration_date: data.expiration_date,
+        expiration_date: "",
         quantity: "",
       };
       setFormData(detected);
