@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Camera, Loader2, Pill, Plus } from "lucide-react";
+import { Camera, Loader2, Pill, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -35,6 +35,10 @@ const Index = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nextId = useRef(DUMMY_MEDS.length + 1);
+
+  const handleDelete = (id: number) => {
+    setMedications((prev) => prev.filter((m) => m.id !== id));
+  };
 
   const handleCapture = () => {
     fileInputRef.current?.click();
@@ -131,6 +135,7 @@ const Index = () => {
                 <TableHead className="text-accent-foreground font-semibold text-xs uppercase tracking-wider text-right">
                   Säilib kuni
                 </TableHead>
+                <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -148,12 +153,21 @@ const Index = () => {
                     <TableCell className={`text-right font-mono text-sm ${isExpired ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
                       {med.expirationDate}
                     </TableCell>
+                    <TableCell className="w-12 p-1">
+                      <button
+                        onClick={() => handleDelete(med.id)}
+                        className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:opacity-100"
+                        aria-label={`Kustuta ${med.name}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </TableCell>
                   </TableRow>
                 );
               })}
               {medications.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
                     Ravimeid pole veel lisatud
                   </TableCell>
                 </TableRow>
