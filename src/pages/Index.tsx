@@ -210,10 +210,11 @@ const Index = () => {
           <Button
             onClick={handleManualAdd}
             variant="outline"
-            className="h-14 px-5 rounded-2xl shadow-sm"
+            className="h-14 px-5 rounded-2xl shadow-sm gap-2 font-semibold"
             size="lg"
           >
             <Plus className="h-5 w-5" />
+            Lisa manuaalselt
           </Button>
         </div>
 
