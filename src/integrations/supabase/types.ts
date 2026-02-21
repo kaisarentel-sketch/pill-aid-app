@@ -14,7 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      medications: {
+        Row: {
+          active_ingredient: string
+          created_at: string
+          expiration_date: string
+          id: string
+          name: string
+        }
+        Insert: {
+          active_ingredient: string
+          created_at?: string
+          expiration_date: string
+          id?: string
+          name: string
+        }
+        Update: {
+          active_ingredient?: string
+          created_at?: string
+          expiration_date?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
