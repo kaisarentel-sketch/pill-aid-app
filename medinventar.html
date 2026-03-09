@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedInventar – Ravimite haldamine</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --teal: #0f7b6c; --teal-light: #e6f4f2; --teal-mid: #1a9e8c;
+    --red: #c0392b; --red-light: #fdecea;
+    --amber: #d97706; --amber-light: #fef3c7;
+    --bg: #f4f7f6; --white: #fff; --text: #1a2e2b; --muted: #6b8c87;
+    --border: #d1e4e1; --shadow: 0 2px 16px rgba(15,123,108,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  header { background: var(--teal); color: white; padding: 20px 20px 32px; position: relative; overflow: hidden; }
+  header::after { content: ''; position: absolute; bottom: -20px; left: 0; right: 0; height: 40px; background: var(--bg); border-radius: 50% 50% 0 0 / 100% 100% 0 0; }
+  .header-top { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .logo-icon { width: 44px; height: 44px; background: rgba(255,255,255,0.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  header h1 { font-family: 'DM Serif Display', serif; font-size: 1.6rem; letter-spacing: -0.5px; }
+  .header-sub { display: flex; align-items: center; gap: 8px; margin-left: 56px; }
+  header p { font-size: 0.85rem; opacity: 0.75; }
+  .sheets-status { font-size: 0.75rem; padding: 2px 10px; border-radius: 20px; font-weight: 600; }
+  .sheets-status.ok { background: rgba(255,255,255,0.2); color: white; }
+  .sheets-status.err { background: rgba(192,57,43,0.3); color: #ffb3ae; }
+
+  main { padding: 24px 16px 100px; max-width: 600px; margin: 0 auto; }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: var(--white); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); text-align: center; }
+  .stat-card .num { font-family: 'DM Serif Display', serif; font-size: 2.2rem; line-height: 1; margin-bottom: 4px; }
+  .stat-card .label { font-size: 0.78rem; color: var(--muted); font-weight: 500; }
+  .stat-card.expired .num { color: var(--red); }
+  .stat-card.total .num { color: var(--teal); }
+
+  .btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 16px; border-radius: 14px; font-size: 0.9rem; font-weight: 600; cursor: pointer; border: none; transition: all 0.18s; font-family: 'DM Sans', sans-serif; }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--teal); color: white; }
+  .btn-secondary { background: var(--white); color: var(--teal); border: 2px solid var(--border); }
+  .btn-camera { background: linear-gradient(135deg, #0d6b5e, #1a9e8c); color: white; width: 100%; padding: 18px; font-size: 1rem; margin-bottom: 10px; border-radius: 16px; }
+  .actions-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+
+  .search-wrap { position: relative; margin-bottom: 16px; }
+  .search-wrap input { width: 100%; padding: 13px 16px 13px 44px; border-radius: 14px; border: 2px solid var(--border); background: var(--white); font-size: 0.95rem; font-family: 'DM Sans', sans-serif; color: var(--text); outline: none; transition: border 0.2s; }
+  .search-wrap input:focus { border-color: var(--teal); }
+  .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 18px; }
+
+  .med-list { display: flex; flex-direction: column; gap: 10px; }
+  .med-card { background: var(--white); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); border-left: 4px solid var(--teal); display: flex; justify-content: space-between; align-items: flex-start; animation: fadeIn 0.3s ease; }
+  .med-card.expired { border-left-color: var(--red); }
+  .med-card.expiring-soon { border-left-color: var(--amber); }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  .med-name { font-weight: 600; font-size: 1rem; margin-bottom: 3px; }
+  .med-active { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; font-style: italic; }
+  .med-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag { font-size: 0.75rem; padding: 3px 9px; border-radius: 20px; font-weight: 500; }
+  .tag-kogus { background: var(--teal-light); color: var(--teal); }
+  .tag-ok { background: #e8f5e9; color: #2e7d32; }
+  .tag-expiring { background: var(--amber-light); color: var(--amber); }
+  .tag-expired { background: var(--red-light); color: var(--red); }
+  .btn-icon { width: 34px; height: 34px; border-radius: 10px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: all 0.2s; background: var(--red-light); color: var(--red); }
+
+  .empty { text-align: center; padding: 48px 24px; color: var(--muted); }
+  .empty .emoji { font-size: 3rem; margin-bottom: 12px; }
+  .empty p { font-size: 0.95rem; line-height: 1.6; }
+  .section-title { font-size: 0.75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: flex-end; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--white); border-radius: 24px 24px 0 0; padding: 28px 20px 44px; width: 100%; max-width: 600px; animation: slideUp 0.32s cubic-bezier(0.34,1.56,0.64,1); max-height: 92vh; overflow-y: auto; }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
+  .modal h2 { font-family: 'DM Serif Display', serif; font-size: 1.4rem; margin-bottom: 20px; color: var(--teal); }
+
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .form-group input { width: 100%; padding: 13px 14px; border-radius: 12px; border: 2px solid var(--border); font-size: 0.95rem; font-family: 'DM Sans', sans-serif; color: var(--text); outline: none; transition: border 0.2s; }
+  .form-group input:focus { border-color: var(--teal); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .btn-full { width: 100%; padding: 16px; margin-top: 8px; font-size: 1rem; border-radius: 14px; }
+
+  .camera-area { background: #111; border-radius: 16px; overflow: hidden; margin-bottom: 14px; position: relative; min-height: 230px; display: flex; align-items: center; justify-content: center; }
+  #cam-video { width: 100%; display: none; }
+  #cam-canvas { display: none; }
+  .cam-placeholder { color: rgba(255,255,255,0.35); text-align: center; padding: 40px; }
+  .cam-placeholder div { font-size: 3.5rem; margin-bottom: 10px; }
+  .cam-placeholder p { font-size: 0.85rem; line-height: 1.5; }
+  .scanning-overlay { position: absolute; inset: 0; background: rgba(15,123,108,0.92); display: none; flex-direction: column; align-items: center; justify-content: center; color: white; }
+  .scanning-overlay.active { display: flex; }
+  .spinner { width: 52px; height: 52px; border: 4px solid rgba(255,255,255,0.25); border-top-color: white; border-radius: 50%; animation: spin 0.75s linear infinite; margin-bottom: 14px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .scanning-overlay p { font-size: 0.95rem; font-weight: 500; opacity: 0.9; }
+  .result-box { display: none; background: var(--teal-light); border: 2px solid var(--teal); border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
+  .result-box.visible { display: block; animation: fadeIn 0.3s ease; }
+  .result-title { font-weight: 600; color: var(--teal); font-size: 0.85rem; margin-bottom: 10px; }
+  .result-item { font-size: 0.9rem; margin-bottom: 5px; line-height: 1.5; }
+  .cam-btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  #fileInput { display: none; }
+
+  .sync-indicator { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--muted); margin-top: 6px; }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+  .sync-dot.syncing { background: var(--amber); animation: pulse 1s infinite; }
+  .sync-dot.synced { background: #2e7d32; }
+  .sync-dot.error { background: var(--red); }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(120px); background: #1a2e2b; color: white; padding: 12px 22px; border-radius: 30px; font-size: 0.9rem; font-weight: 500; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); z-index: 300; white-space: nowrap; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div class="logo-icon">💊</div>
+    <h1>MedInventar</h1>
+  </div>
+  <div class="header-sub">
+    <p>Ravimite haldamine</p>
+    <span class="sheets-status ok" id="sheets-status">📊 Sheets ühendatud</span>
+  </div>
+</header>
+
+<main>
+  <div class="stats">
+    <div class="stat-card total"><div class="num" id="total-count">0</div><div class="label">Ravimeid kokku</div></div>
+    <div class="stat-card expired"><div class="num" id="expired-count">0</div><div class="label">Aegunud</div></div>
+  </div>
+
+  <button class="btn btn-camera" onclick="openCamera()">📷 Pildista ravimikarpi</button>
+
+  <div class="actions-row">
+    <button class="btn btn-secondary" onclick="openManual()">✏️ Lisa käsitsi</button>
+    <button class="btn btn-secondary" onclick="exportCSV()">📥 Ekspordi CSV</button>
+  </div>
+
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="search" placeholder="Otsi ravimit..." oninput="renderList()">
+  </div>
+
+  <div class="section-title">
+    Ravimite nimekiri
+    <span class="sync-indicator"><span class="sync-dot" id="sync-dot"></span><span id="sync-text"></span></span>
+  </div>
+  <div class="med-list" id="med-list"></div>
+</main>
+
+<!-- CAMERA MODAL -->
+<div class="modal-overlay" id="camera-modal" onclick="handleCameraOverlay(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>📷 Pildista ravimikarpi</h2>
+    <div class="camera-area">
+      <video id="cam-video" autoplay playsinline></video>
+      <canvas id="cam-canvas"></canvas>
+      <div class="cam-placeholder" id="cam-placeholder">
+        <div>📦</div>
+        <p>Suuna kaamera ravimikarbi peale<br>ja vajuta "Pildista"</p>
+      </div>
+      <div class="scanning-overlay" id="scanning-overlay">
+        <div class="spinner"></div>
+        <p>Claude analüüsib pakki...</p>
+      </div>
+    </div>
+    <div class="result-box" id="result-box">
+      <div class="result-title">✅ Tuvastatud info</div>
+      <div id="result-content"></div>
+    </div>
+    <div class="cam-btn-row">
+      <button class="btn btn-primary" id="start-cam-btn" onclick="startCamera()">🎥 Ava kaamera</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">🖼 Galeriist</button>
+    </div>
+    <input type="file" id="fileInput" accept="image/*" onchange="handleFile(event)">
+    <button class="btn btn-primary" id="capture-btn" style="display:none;width:100%;padding:16px;margin-bottom:10px;border-radius:14px;" onclick="captureAndAnalyze()">📸 Pildista ja analüüsi</button>
+    <button class="btn btn-primary btn-full" id="confirm-btn" style="display:none;background:#2e7d32;" onclick="confirmScan()">✅ Lisa ravim nimekirja</button>
+    <button class="btn btn-secondary btn-full" style="margin-top:8px;" onclick="closeCameraModal()">Sulge</button>
+  </div>
+</div>
+
+<!-- MANUAL MODAL -->
+<div class="modal-overlay" id="manual-modal" onclick="handleManualOverlay(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>✏️ Lisa ravim käsitsi</h2>
+    <div class="form-group"><label>Ravimi nimi *</label><input type="text" id="f-name" placeholder="nt. Ibuprofen 400mg"></div>
+    <div class="form-group"><label>Toimeaine</label><input type="text" id="f-active" placeholder="nt. ibuprofeen"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Kogus</label><input type="text" id="f-qty" placeholder="nt. 20 tk"></div>
+      <div class="form-group"><label>Säilib kuni *</label><input type="date" id="f-exp"></div>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveManual()">Salvesta</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════
+// GOOGLE SHEETS CONFIG
+// ══════════════════════════════════════════════════
+const SHEET_ID = '1gWepH0TwT6kLX5hUYs6Fd9sWOhlLpgDXgTNLVaZJulE';
+const SERVICE_ACCOUNT_EMAIL = 'medinventar-sheets@medinventar.iam.gserviceaccount.com';
+const PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDQD+CT46ijm7rj
+CXf0H9sswO51rcO7q/Ne3pnvbSOzxhTzRVpEDLsem2rsm6RsWNQ+13kVwgui1I3/
+0X6xM5KU3kTATA9ABeeGMLc9AGvFCaA9G/iPuECSKzOg8ICEoWJ/dIpymZCudI8V
+oYXS6+ymVAlzHAVWUAVK7NzMXQ4a+sSiTdIDg88I4QFjqxr2w9VKcAdd3MiPw6lk
+UHXpoYQcR1MGuWAcpF5zhfa0POeRtFN8Tk50zUYX2/QoG+dxEYPGZGCFTQSMNODB
+aOlV8ZFAX+e14CgJOAAwZJQ7Q0RZ45gBZgwLC85ikebUNk5zOymJPtzU8NwSOs2i
+Aa4efJFDAgMBAAECggEAZRgp20HlaWWcJ3+syLIH2VV/KC+/qLsSe/i2HBdQHyQy
+fsemZeU3sFX83K19dWWt70DcJT3NUJdtzayZnfk8klfzWOo8CLQ1vEaEaj//nVQh
+hz/FhPOWcE9MfTkOgSM3TE2wjaFfIt0gvvZmI0eeC21O0B7/2uHzyGWRnTzjwyhP
+vKaqTXGaveCQFgLWTrBqAGWRuqFGYpdqa5PFXgiJrbjSFiNHkkGRZ1hAuYRzJf8d
+hpY3YJG+rv9ZQlrCW9VAYyNNoz1PlK34xUd8JkkdZDGDdpigK0W3cbYpGpeGFhZe
+1XwAM7ZSiu5zJ3XkU+CbB4NV5mkZx5hE9J18L8ANCQKBgQD3WFz4cNhsysQ/k94o
+sy1gySD6bfgllChAMVe6qfBUesl3+pCSVszY/Ut3icqS0uKz9DCiZoOPxqyYv3ds
+N2mxyrxFk3333vd02IHuKM97mJczlDmU/Ea7EJKJu73wwRVm2CRVOw7HyHB83qhB
+9d7MouHLVEXaUU+xXJ0C/qPmGQKBgQDXV6DoRJad4OC/daoTx5uL5aOPD1Op3I6L
+Pd0ELtzSX2aAwySzuqqGJFCMS71y9zJKsPAHdu5EVXAB11HT0Vgyc6NOvdXDh/QB
+wri0EgS3LcvRTywvjHqm9JBnze9umqWT+kOiTnRmSbq4DtBlG+N9DVnvCTxjaeR0
+FugHSg0FuwKBgQCjl+wV3f0nJ41ZR6G+ZZPz2dNYD3f60t00Z+5QZamxFm0+T5lj
+UMm4Ev/hFl/HcHfE8hNgtlD5vTvW43xHNPdRQnf3xK+iS/R7cd+t94wTgT8wPC9B
+nQHjI/jn5Cain/JZzUdqn98MwEO2M0YyKj6sNmcFJr30wabl9g1bN7SLsQKBgFSX
+B4414zSBccfD4NuEPYXm3ykDTEodaaEo2/kYr4W0E//gqDoxyWqIOVvjJLhUglz0
+xFUqUs5lAWq3ul0KjyrCYhQ8XgxBC4jlhMi3i0Kpqra98w16kXOj/lXIf5VjCkfm
+t0q6pt7Hd6F1sEcHfYVSCVHsvtwObL9tgBfc7uChAoGAKBxFJJ5iMXdloR8fW3H4
+dH/NkEezVEYKJNNBFPJevBKNQknogrd13U0gAaVIpYkePX06wFlbcYCrvzHI+qJu
+XhFs6lQ8onBZYL9Xn5XBHu85PX7ybnvIBNqwWsoMi3qYr7M1/eAH/tX6e8fc9Yox
+77AgAsndsruYVA4ozQpsXNs=
+-----END PRIVATE KEY-----`;
+
+// ══════════════════════════════════════════════════
+// JWT + GOOGLE SHEETS AUTH
+// ══════════════════════════════════════════════════
+let accessToken = null;
+let tokenExpiry = 0;
+
+function b64url(str) {
+  return btoa(str).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+function b64urlUint8(arr) {
+  return btoa(String.fromCharCode(...arr)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+async function getAccessToken() {
+  if (accessToken && Date.now() < tokenExpiry) return accessToken;
+  const now = Math.floor(Date.now()/1000);
+  const header = b64url(JSON.stringify({alg:'RS256',typ:'JWT'}));
+  const claim = b64url(JSON.stringify({
+    iss: SERVICE_ACCOUNT_EMAIL,
+    scope: 'https://www.googleapis.com/auth/spreadsheets',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now, exp: now + 3600
+  }));
+  const signing = header + '.' + claim;
+
+  // Import private key
+  const pemBody = PRIVATE_KEY.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g,'');
+  const binaryDer = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8', binaryDer.buffer,
+    { name:'RSASSA-PKCS1-v1_5', hash:'SHA-256' },
+    false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(signing));
+  const jwt = signing + '.' + b64urlUint8(new Uint8Array(sig));
+
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {'Content-Type':'application/x-www-form-urlencoded'},
+    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`
+  });
+  const data = await res.json();
+  if (!data.access_token) throw new Error('Token failed: ' + JSON.stringify(data));
+  accessToken = data.access_token;
+  tokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
+  return accessToken;
+}
+
+async function appendToSheet(med) {
+  setSyncStatus('syncing', 'Sünkroniseerin...');
+  try {
+    const token = await getAccessToken();
+    const date = new Date().toLocaleDateString('et-EE');
+    const row = [date, med.name, med.active||'', med.qty||'', med.exp||''];
+    const res = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/A1:E1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+      {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [row] })
+      }
+    );
+    if (!res.ok) throw new Error(await res.text());
+    setSyncStatus('synced', 'Sheets uuendatud ✓');
+    document.getElementById('sheets-status').textContent = '📊 Sheets ühendatud';
+    document.getElementById('sheets-status').className = 'sheets-status ok';
+    setTimeout(() => setSyncStatus('', ''), 3000);
+  } catch(e) {
+    setSyncStatus('error', 'Sünk ebaõnnestus');
+    document.getElementById('sheets-status').textContent = '⚠️ Sheets viga';
+    document.getElementById('sheets-status').className = 'sheets-status err';
+    console.error('Sheets error:', e);
+  }
+}
+
+function setSyncStatus(state, text) {
+  const dot = document.getElementById('sync-dot');
+  const txt = document.getElementById('sync-text');
+  dot.className = 'sync-dot' + (state ? ' ' + state : '');
+  txt.textContent = text;
+}
+
+// ══════════════════════════════════════════════════
+// APP STATE
+// ══════════════════════════════════════════════════
+let meds = JSON.parse(localStorage.getItem('medinventar') || '[]');
+let stream = null, capturedBase64 = null, detectedData = null;
+
+function save() { localStorage.setItem('medinventar', JSON.stringify(meds)); }
+
+function renderList() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const list = document.getElementById('med-list');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const expired = meds.filter(m => m.exp && new Date(m.exp) < today).length;
+  document.getElementById('total-count').textContent = meds.length;
+  document.getElementById('expired-count').textContent = expired;
+  const filtered = meds.filter(m => m.name.toLowerCase().includes(q) || (m.active||'').toLowerCase().includes(q));
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty"><div class="emoji">🏥</div><p>${q ? 'Ühtegi ravimit ei leitud.' : 'Ravimeid pole veel lisatud.<br>Alusta pildistamisega!'}</p></div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(m => {
+    const idx = meds.indexOf(m);
+    const expDate = m.exp ? new Date(m.exp) : null;
+    const diff = expDate ? Math.floor((expDate - today) / 86400000) : null;
+    let cls = '', statusTag = '';
+    if (diff !== null) {
+      if (diff < 0) { cls = 'expired'; statusTag = `<span class="tag tag-expired">⚠️ Aegunud</span>`; }
+      else if (diff <= 30) { cls = 'expiring-soon'; statusTag = `<span class="tag tag-expiring">⏳ ${diff} päeva</span>`; }
+      else { statusTag = `<span class="tag tag-ok">✓ ${expDate.toLocaleDateString('et-EE')}</span>`; }
+    }
+    return `<div class="med-card ${cls}">
+      <div>
+        <div class="med-name">${m.name}</div>
+        ${m.active ? `<div class="med-active">${m.active}</div>` : ''}
+        <div class="med-tags">${m.qty ? `<span class="tag tag-kogus">📦 ${m.qty}</span>` : ''}${statusTag}</div>
+      </div>
+      <button class="btn-icon" onclick="deleteMed(${idx})">🗑</button>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════
+// CAMERA
+// ══════════════════════════════════════════════════
+function openCamera() { resetCamera(); document.getElementById('camera-modal').classList.add('open'); }
+function closeCameraModal() { stopStream(); document.getElementById('camera-modal').classList.remove('open'); resetCamera(); }
+function handleCameraOverlay(e) { if (e.target === document.getElementById('camera-modal')) closeCameraModal(); }
+
+function resetCamera() {
+  capturedBase64 = null; detectedData = null;
+  document.getElementById('cam-placeholder').style.display = 'flex';
+  document.getElementById('cam-video').style.display = 'none';
+  document.getElementById('scanning-overlay').classList.remove('active');
+  document.getElementById('result-box').className = 'result-box';
+  document.getElementById('confirm-btn').style.display = 'none';
+  document.getElementById('capture-btn').style.display = 'none';
+  document.getElementById('start-cam-btn').style.display = 'flex';
+  document.getElementById('fileInput').value = '';
+}
+
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const v = document.getElementById('cam-video');
+    v.srcObject = stream; v.style.display = 'block';
+    document.getElementById('cam-placeholder').style.display = 'none';
+    document.getElementById('start-cam-btn').style.display = 'none';
+    document.getElementById('capture-btn').style.display = 'flex';
+  } catch(e) { showToast('❗ Kaamera pole ligipääsetav — proovi galeriist'); }
+}
+function stopStream() { if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } }
+
+function captureAndAnalyze() {
+  const v = document.getElementById('cam-video');
+  const c = document.getElementById('cam-canvas');
+  c.width = v.videoWidth; c.height = v.videoHeight;
+  c.getContext('2d').drawImage(v, 0, 0);
+  capturedBase64 = c.toDataURL('image/jpeg', 0.88).split(',')[1];
+  stopStream(); v.style.display = 'none';
+  document.getElementById('capture-btn').style.display = 'none';
+  analyzeImage();
+}
+
+function handleFile(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    capturedBase64 = ev.target.result.split(',')[1];
+    document.getElementById('cam-placeholder').style.display = 'none';
+    document.getElementById('start-cam-btn').style.display = 'none';
+    analyzeImage();
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeImage() {
+  document.getElementById('scanning-overlay').classList.add('active');
+  document.getElementById('result-box').className = 'result-box';
+  document.getElementById('confirm-btn').style.display = 'none';
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: capturedBase64 } },
+            { type: 'text', text: 'See on ravimikarbi foto. Loe pakendilt info. Vasta AINULT puhta JSON-ina ilma markdown formaadita:\n{"name":"ravimi nimi koos tugevusega","active":"toimeaine","qty":"kogus nt 20 tabletti","exp":"YYYY-MM-DD"}\nKui mõnda välja ei näe, jäta tühjaks. AINULT JSON.' }
+          ]
+        }]
+      })
+    });
+    const data = await res.json();
+    const raw = data.content.map(b => b.text||'').join('').replace(/```json|```/g,'').trim();
+    detectedData = JSON.parse(raw);
+    if (detectedData.exp && detectedData.exp.match(/^\d{4}-\d{2}$/)) detectedData.exp += '-01';
+    document.getElementById('scanning-overlay').classList.remove('active');
+    document.getElementById('result-content').innerHTML = [
+      detectedData.name   ? `<div class="result-item">💊 <b>Nimi:</b> ${detectedData.name}</div>` : '',
+      detectedData.active ? `<div class="result-item">🔬 <b>Toimeaine:</b> ${detectedData.active}</div>` : '',
+      detectedData.qty    ? `<div class="result-item">📦 <b>Kogus:</b> ${detectedData.qty}</div>` : '',
+      detectedData.exp    ? `<div class="result-item">📅 <b>Säilib kuni:</b> ${new Date(detectedData.exp).toLocaleDateString('et-EE',{year:'numeric',month:'long'})}</div>` : '',
+      !detectedData.name  ? `<div class="result-item" style="color:var(--amber)">⚠️ Infot ei tuvastatud — proovi selgemat pilti</div>` : ''
+    ].join('');
+    document.getElementById('result-box').className = 'result-box visible';
+    if (detectedData.name) document.getElementById('confirm-btn').style.display = 'flex';
+  } catch(e) {
+    document.getElementById('scanning-overlay').classList.remove('active');
+    showToast('❗ Analüüs ebaõnnestus. Proovi uuesti.');
+  }
+}
+
+async function confirmScan() {
+  if (!detectedData?.name) return;
+  const med = { name: detectedData.name, active: detectedData.active||'', qty: detectedData.qty||'', exp: detectedData.exp||'' };
+  meds.push(med); save(); renderList(); closeCameraModal();
+  showToast('✅ Ravim lisatud!');
+  await appendToSheet(med);
+}
+
+// ══════════════════════════════════════════════════
+// MANUAL
+// ══════════════════════════════════════════════════
+function openManual() {
+  document.getElementById('manual-modal').classList.add('open');
+  const d = new Date(); d.setFullYear(d.getFullYear()+1);
+  document.getElementById('f-exp').value = d.toISOString().split('T')[0];
+  setTimeout(() => document.getElementById('f-name').focus(), 300);
+}
+function closeManual() {
+  document.getElementById('manual-modal').classList.remove('open');
+  ['f-name','f-active','f-qty','f-exp'].forEach(id => document.getElementById(id).value = '');
+}
+function handleManualOverlay(e) { if (e.target === document.getElementById('manual-modal')) closeManual(); }
+
+async function saveManual() {
+  const name = document.getElementById('f-name').value.trim();
+  const exp  = document.getElementById('f-exp').value;
+  if (!name) { showToast('❗ Ravimi nimi on kohustuslik'); return; }
+  if (!exp)  { showToast('❗ Sisesta aegumiskuupäev'); return; }
+  const med = { name, active: document.getElementById('f-active').value.trim(), qty: document.getElementById('f-qty').value.trim(), exp };
+  meds.push(med); save(); closeManual(); renderList();
+  showToast('✅ Ravim lisatud!');
+  await appendToSheet(med);
+}
+
+// ══════════════════════════════════════════════════
+// DELETE & EXPORT
+// ══════════════════════════════════════════════════
+function deleteMed(i) {
+  if (!confirm(`Kustuta "${meds[i].name}"?`)) return;
+  meds.splice(i,1); save(); renderList(); showToast('🗑 Kustutatud');
+}
+
+function exportCSV() {
+  if (!meds.length) { showToast('❗ Pole midagi eksportida'); return; }
+  const rows = [['Kuupäev','Nimi','Toimeaine','Kogus','Säilib kuni'], ...meds.map(m=>[new Date().toLocaleDateString('et-EE'),m.name,m.active||'',m.qty||'',m.exp||''])];
+  const csv = rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download = `medinventar_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click(); showToast('📥 CSV allalaaditud!');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+document.addEventListener('keydown', e => { if (e.key==='Escape') { closeCameraModal(); closeManual(); } });
+
+// Init: add header row to sheet if needed
+async function initSheet() {
+  try {
+    const token = await getAccessToken();
+    const res = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/A1:E1`,
+      { headers: { 'Authorization': 'Bearer ' + token } }
+    );
+    const data = await res.json();
+    if (!data.values || !data.values[0] || data.values[0][0] !== 'Kuupäev') {
+      await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/A1:E1?valueInputOption=USER_ENTERED`,
+        {
+          method: 'PUT',
+          headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [['Kuupäev','Nimi','Toimeaine','Kogus','Säilib kuni']] })
+        }
+      );
+    }
+    document.getElementById('sheets-status').textContent = '📊 Sheets ühendatud';
+    document.getElementById('sheets-status').className = 'sheets-status ok';
+  } catch(e) {
+    document.getElementById('sheets-status').textContent = '⚠️ Sheets ühendus puudub';
+    document.getElementById('sheets-status').className = 'sheets-status err';
+  }
+}
+
+renderList();
+initSheet();
+</script>
+</body>
+</html>
